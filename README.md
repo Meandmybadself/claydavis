@@ -27,7 +27,7 @@ The Worker replays that log with the same rules (`sim.js`) and computes the scor
 - `POST /api/start` returns an HMAC-signed run token carrying the server's start time.
 - `POST /api/finish` replays the taps, rejects runs longer than the server clock allows, rejects impossible
   or metronome-perfect tap logs, and stores the score. A token works once (its id is the primary key).
-- `GET /api/top` returns the top scores (best per name), cached for 10 seconds.
+- `GET /api/top` returns the top scores (best per set of 3-letter initials), cached for 10 seconds.
 - Optional Cloudflare Turnstile on `/api/start`, plus a per-IP hourly cap on stored runs.
 
 Setup (from `worker/`):

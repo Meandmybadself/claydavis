@@ -32,8 +32,8 @@ async function sha(text) {
 }
 
 function cleanName(raw) {
-  const name = String(raw || '').toUpperCase().replace(/[^A-Z0-9 _.\-]/g, '').trim().slice(0, 12);
-  return name || 'ANON';
+  const name = String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  return name || '???';
 }
 
 function cors(request, env) {
