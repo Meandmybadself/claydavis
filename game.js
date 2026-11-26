@@ -202,16 +202,23 @@
   }
 
   function start(side) {
-    state = 'playing';
+    // Mobile browsers keep the audio clock frozen until resume() settles, and a
+    // sound started before then loses its opening. Wait for it, then begin.
+    state = 'starting';
+    const begin = () => {
+      if (state !== 'starting') return;
+      state = 'playing';
+      voice = play(sound.looped, 0, true);
+      startedAt = lastTick = performance.now();
+      breath = START_BREATH;
+      lastSide = side;
+      highlightNext();
+      setPrompt('KEEP IT GOING!');
+      animation = requestAnimationFrame(tick);
+    };
+    if (audio.state === 'running') return begin();
     // Browsers only allow audio to start from a user gesture; this is one.
-    if (audio.state !== 'running') audio.resume();
-    voice = play(sound.looped, 0, true);
-    startedAt = lastTick = performance.now();
-    breath = START_BREATH;
-    lastSide = side;
-    highlightNext();
-    setPrompt('KEEP IT GOING!');
-    animation = requestAnimationFrame(tick);
+    audio.resume().then(begin, begin);
   }
 
   function tick() {
