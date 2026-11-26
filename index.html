@@ -75,6 +75,16 @@
       <h2 id="verdict"></h2>
       <p id="note"></p>
       <img id="card" alt="Your score card">
+      <form id="postform" hidden onsubmit="return false">
+        <input id="name" maxlength="12" placeholder="YOUR NAME" autocomplete="nickname" autocapitalize="characters" spellcheck="false" aria-label="Your name">
+        <button type="button" id="post" class="primary">POST SCORE</button>
+      </form>
+      <p id="posted" aria-live="polite"></p>
+      <div id="board" hidden>
+        <h3>TOP RUNS</h3>
+        <ol id="scores"></ol>
+      </div>
+      <div id="turnstile"></div>
       <button type="button" id="share" class="primary">SHARE IT</button>
       <div class="links">
         <a id="toX" target="_blank" rel="noopener">X</a>
@@ -87,6 +97,6 @@
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script type="module" src="game.js"></script>
 </body>
 </html>

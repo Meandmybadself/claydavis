@@ -1,3 +1,5 @@
+import { Sim } from './sim.js';
+
 (() => {
   'use strict';
 
@@ -11,17 +13,13 @@
   const CROSSFADE = 0.12;
   const TAIL_START = 1.95;
 
-  // Tuning
-  const GRACE = 0.9;          // seconds before breath starts draining
-  const START_BREATH = 0.6;
-  const PER_PRESS = 0.075;    // breath gained per correct (alternating) press
+  // Leaderboard API (the Cloudflare Worker in worker/). Leave API empty to turn it off.
+  const API = '/api';
+  const TURNSTILE_SITE_KEY = '';   // optional: set to enable the bot challenge
+
+  // Tuning (the game rules themselves live in sim.js so the server can replay runs)
   const AUDIO_LEAD = 0.15;    // seconds between the first tap and the sound starting
   const LOCKOUT_MS = 1200;    // stops leftover mashing from skipping the results
-
-  // Alternating presses per second needed to break even at time t.
-  // Taps are worth less the longer you last, so the run gets steadily harder.
-  const tapValue = (t) => Math.max(0.3, 1 / (1 + t / 40));
-  const requiredRate = (t) => 3 + 8 * (1 - Math.exp(-t / 20)) + Math.max(0, t - 20) * 0.1;
 
   // Lines in Clay's voice that rotate while you play. Edit freely.
   const PHRASES = [
@@ -56,7 +54,9 @@
 
   let state = 'loading';
   let startedAt = 0;
-  let lastTick = 0;
+  let sim = null;
+  let forfeit = false;
+  let runToken = null;
   let elapsed = 0;
   let breath = 0;
   let lastSide = null;
@@ -232,6 +232,9 @@
     elapsed = 0;
     breath = 0;
     lastSide = null;
+    sim = null;
+    forfeit = false;
+    fetchToken();
     $('results').hidden = true;
     $('best').textContent = best.toFixed(2);
     highlightNext();
@@ -257,8 +260,10 @@
       // A short lead lets phone audio hardware wake up so the opening isn't clipped.
       loopRate = 1;
       voice = playLoop(AUDIO_LEAD);
-      startedAt = lastTick = performance.now() + AUDIO_LEAD * 1000;
-      breath = START_BREATH;
+      startedAt = performance.now() + AUDIO_LEAD * 1000;
+      sim = new Sim();
+      sim.tap(0, side);
+      breath = sim.breath;
       lastSide = side;
       highlightNext();
       setPrompt(phraseAt(0));
@@ -273,13 +278,14 @@
 
   function tick() {
     if (state !== 'playing') return;
-    const now = performance.now();
-    const dt = Math.max(0, now - lastTick) / 1000;
-    lastTick = now;
-    elapsed = Math.max(0, now - startedAt) / 1000;
-
-    if (elapsed > GRACE) breath -= requiredRate(elapsed) * PER_PRESS * Math.min(dt, 0.1);
-    if (breath <= 0) return finish();
+    const ms = Math.max(0, Math.floor(performance.now() - startedAt));
+    sim.advance(ms);
+    breath = sim.breath;
+    if (sim.over) {
+      elapsed = sim.t / 1000;
+      return finish();
+    }
+    elapsed = ms / 1000;
 
     // His voice sags as he runs out of breath.
     if (elapsed > LOOP_END) {
@@ -359,6 +365,7 @@
     $('copy').textContent = 'COPY';
 
     makeCard(seconds);
+    prepareBoard();
   }
 
   // Build the image up front: Safari only allows share() directly from a tap.
@@ -397,6 +404,115 @@
     }, 'image/jpeg', 0.88);
   }
 
+  /* ---------- leaderboard ---------- */
+
+  let submission = null;
+
+  async function fetchToken() {
+    runToken = null;
+    if (!API) return;
+    try {
+      const cf = TURNSTILE_SITE_KEY ? await challenge_token() : undefined;
+      const res = await fetch(`${API}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cf }),
+      });
+      if (res.ok) runToken = (await res.json()).token;
+    } catch { /* the leaderboard is optional */ }
+  }
+
+  // Cloudflare Turnstile, only shown to the player if it needs a click.
+  function challenge_token() {
+    return new Promise((resolve, reject) => {
+      const render = () => window.turnstile.render('#turnstile', {
+        sitekey: TURNSTILE_SITE_KEY,
+        appearance: 'interaction-only',
+        callback: resolve,
+        'error-callback': reject,
+      });
+      if (window.turnstile) return render();
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.onload = render;
+      script.onerror = reject;
+      document.head.append(script);
+    });
+  }
+
+  function drawBoard(scores, mine) {
+    const list = $('scores');
+    list.replaceChildren(...scores.map((s, i) => {
+      const li = document.createElement('li');
+      const you = mine && s.name === mine.name && Math.abs(s.score - mine.score) < 0.005;
+      if (you) li.className = 'you';
+      li.textContent = `${String(i + 1).padStart(2, ' ')} ${s.name.padEnd(12, ' ')} ${s.score.toFixed(2)}s`;
+      return li;
+    }));
+    $('board').hidden = false;
+  }
+
+  async function loadBoard(mine) {
+    if (!API) return;
+    try {
+      const res = await fetch(`${API}/top?limit=10`);
+      if (res.ok) drawBoard((await res.json()).scores, mine);
+    } catch { /* offline */ }
+  }
+
+  function prepareBoard() {
+    $('board').hidden = true;
+    $('postform').hidden = true;
+    $('posted').textContent = '';
+    submission = null;
+    if (!API) return;
+    if (runToken && !forfeit && sim && sim.log.length > 1) {
+      submission = { token: runToken, taps: sim.log };
+      runToken = null;
+      $('name').value = readName();
+      $('post').disabled = false;
+      $('postform').hidden = false;
+    }
+    loadBoard();
+  }
+
+  function readName() {
+    try { return localStorage.getItem('shiiit-name') || ''; } catch { return ''; }
+  }
+
+  const WHY = {
+    too_long: 'That run didn’t check out.',
+    robotic: 'Too perfect to be human.',
+    slow_down: 'Easy, too many runs. Try later.',
+    token_expired: 'This run timed out. Play again.',
+    already_submitted: 'Already posted.',
+    challenge_failed: 'Bot check failed.',
+  };
+
+  $('post').addEventListener('click', async () => {
+    if (!submission) return;
+    const name = $('name').value.trim().toUpperCase();
+    try { localStorage.setItem('shiiit-name', name); } catch { /* private mode */ }
+    $('post').disabled = true;
+    $('posted').textContent = 'POSTING…';
+    try {
+      const res = await fetch(`${API}/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...submission, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      submission = null;
+      $('postform').hidden = true;
+      $('posted').textContent = `POSTED! RANK #${data.rank}`;
+      loadBoard({ name: name || 'ANON', score: data.score });
+    } catch (err) {
+      $('posted').textContent = WHY[err.message] || 'Couldn’t post. Try again.';
+      $('post').disabled = !submission || err.message === 'already_submitted';
+    }
+  });
+
   function showResults() {
     $('results').hidden = false;
     $('again').focus({ preventScroll: true });
@@ -431,15 +547,19 @@
   function press(side) {
     if (state === 'ready') return start(side);
     if (state !== 'playing') return;
-    if (side === lastSide) {
+    const ms = Math.floor(performance.now() - startedAt);
+    if (ms <= 0) return; // still inside the audio lead-in
+    const result = sim.tap(ms, side);
+    if (result === 'same') {
       const pad = pads[side];
       pad.classList.remove('wrong');
       void pad.offsetWidth; // restart the animation
       pad.classList.add('wrong');
       return;
     }
+    if (result !== 'ok') return;
     lastSide = side;
-    breath = Math.min(1, breath + PER_PRESS * tapValue(elapsed));
+    breath = sim.breath;
     highlightNext();
   }
 
@@ -476,6 +596,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state === 'playing') {
       elapsed = (performance.now() - startedAt) / 1000;
+      forfeit = true; // the replay wouldn't match, so this run can't be posted
       finish();
     }
   });
