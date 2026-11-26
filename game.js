@@ -143,13 +143,39 @@
     return { source, gain };
   }
 
+  // iOS Safari wouldn't play the natively looped source, so chain plain one-shot
+  // segments instead (the same kind of playback that works for the ending).
+  let loopRate = 1;
+  function playLoop(delay) {
+    const gain = audio.createGain();
+    gain.connect(audio.destination);
+    const v = { gain, sources: [], next: audio.currentTime + delay, first: true };
+    v.schedule = () => {
+      while (v.next < audio.currentTime + 0.4) {
+        const offset = v.first ? 0 : LOOP_START;
+        const length = loopEnd - offset;
+        const src = audio.createBufferSource();
+        src.buffer = sound.looped;
+        src.playbackRate.value = loopRate;
+        src.connect(gain);
+        src.start(v.next, offset, length);
+        src.onended = () => { v.sources = v.sources.filter((x) => x !== src); };
+        v.sources.push(src);
+        v.next += length / loopRate;
+        v.first = false;
+      }
+    };
+    v.schedule();
+    return v;
+  }
+
   function stop(v, fade = 0.08) {
     if (!v) return;
     const now = audio.currentTime;
     v.gain.gain.cancelScheduledValues(now);
     v.gain.gain.setValueAtTime(v.gain.gain.value, now);
     v.gain.gain.linearRampToValueAtTime(0, now + fade);
-    v.source.stop(now + fade);
+    for (const s of v.sources || [v.source]) { try { s.stop(now + fade); } catch { /* not started */ } }
   }
 
   /* ---------- drawing ---------- */
@@ -229,7 +255,8 @@
       if (state !== 'starting') return;
       state = 'playing';
       // A short lead lets phone audio hardware wake up so the opening isn't clipped.
-      voice = play(sound.looped, 0, true, 0, AUDIO_LEAD);
+      loopRate = 1;
+      voice = playLoop(AUDIO_LEAD);
       startedAt = lastTick = performance.now() + AUDIO_LEAD * 1000;
       breath = START_BREATH;
       lastSide = side;
@@ -256,8 +283,9 @@
 
     // His voice sags as he runs out of breath.
     if (elapsed > LOOP_END) {
-      voice.source.playbackRate.setTargetAtTime(0.93 + 0.1 * breath, audio.currentTime, 0.1);
+      loopRate = 0.93 + 0.1 * breath;
     }
+    voice.schedule();
 
     draw(frameAt(elapsed));
     render();
