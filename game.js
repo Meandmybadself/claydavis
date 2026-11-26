@@ -18,6 +18,8 @@
   const LOCKOUT_MS = 1200;    // stops leftover mashing from skipping the results
 
   // Alternating presses per second needed to break even at time t.
+  // Taps are worth less the longer you last, so the run gets steadily harder.
+  const tapValue = (t) => Math.max(0.3, 1 / (1 + t / 40));
   const requiredRate = (t) => 3 + 8 * (1 - Math.exp(-t / 20)) + Math.max(0, t - 20) * 0.1;
 
   const KEYS = { ArrowLeft: 0, KeyA: 0, KeyZ: 0, ArrowRight: 1, KeyL: 1, KeyX: 1 };
@@ -379,7 +381,7 @@
       return;
     }
     lastSide = side;
-    breath = Math.min(1, breath + PER_PRESS);
+    breath = Math.min(1, breath + PER_PRESS * tapValue(elapsed));
     highlightNext();
   }
 
