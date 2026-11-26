@@ -9,7 +9,7 @@ routes = [{ pattern = "claydavis.meandmybadself.com/api/*", zone_name = "meandmy
 [[d1_databases]]
 binding = "DB"
 database_name = "claydavis"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "70459568-de5a-4a7d-b47a-fde8848a3b61"
 
 [vars]
 # Browsers allowed to call the API cross-origin (same-origin calls need nothing).
