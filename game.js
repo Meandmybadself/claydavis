@@ -15,7 +15,9 @@ import { Sim } from './sim.js';
 
   // Leaderboard API (the Cloudflare Worker in worker/). Leave API empty to turn it off.
   const API = '/api';
-  const TURNSTILE_SITE_KEY = '';   // optional: set to enable the bot challenge
+  const TURNSTILE_SITE_KEY = '0x4AAAAAAGU5AcFx9f_jk6C3';   // public; leave empty to turn the bot check off
+  // The widget only allows the live hostname, so local dev runs without it.
+  const CHALLENGE = location.hostname === 'claydavis.meandmybadself.com' ? TURNSTILE_SITE_KEY : '';
 
   // Tuning (the game rules themselves live in sim.js so the server can replay runs)
   const AUDIO_LEAD = 0.15;    // seconds between the first tap and the sound starting
@@ -57,6 +59,7 @@ import { Sim } from './sim.js';
   let sim = null;
   let forfeit = false;
   let runToken = null;
+  let runId = 0;
   let elapsed = 0;
   let breath = 0;
   let lastSide = null;
@@ -409,34 +412,63 @@ import { Sim } from './sim.js';
   let submission = null;
 
   async function fetchToken() {
+    const id = ++runId;
     runToken = null;
     if (!API) return;
     try {
-      const cf = TURNSTILE_SITE_KEY ? await challenge_token() : undefined;
+      const cf = CHALLENGE ? await takeChallenge() : undefined;
+      if (id !== runId) return;
       const res = await fetch(`${API}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cf }),
       });
-      if (res.ok) runToken = (await res.json()).token;
+      if (!res.ok) return;
+      const { token } = await res.json();
+      if (id === runId) runToken = token;
     } catch { /* the leaderboard is optional */ }
   }
 
-  // Cloudflare Turnstile, only shown to the player if it needs a click.
-  function challenge_token() {
-    return new Promise((resolve, reject) => {
-      const render = () => window.turnstile.render('#turnstile', {
-        sitekey: TURNSTILE_SITE_KEY,
+  // Cloudflare Turnstile, only shown to the player if it needs a click. It is
+  // solved ahead of time so the server's run clock can start with the run.
+  let challengeWidget = null;
+  let challengeToken = null;
+  let challengeWaiter = null;
+
+  function loadChallenge() {
+    const render = () => {
+      challengeWidget = window.turnstile.render('#turnstile', {
+        sitekey: CHALLENGE,
+        action: 'turnstile-spin-v2',
         appearance: 'interaction-only',
-        callback: resolve,
-        'error-callback': reject,
+        callback: (token) => {
+          challengeToken = token;
+          deliverChallenge();
+        },
+        'expired-callback': () => { challengeToken = null; },
       });
-      if (window.turnstile) return render();
-      const script = document.createElement('script');
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-      script.onload = render;
-      script.onerror = reject;
-      document.head.append(script);
+    };
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.onload = render;
+    document.head.append(script);
+  }
+
+  // Each token works once: hand it over, then start solving the next one.
+  function deliverChallenge() {
+    if (!challengeToken || !challengeWaiter) return;
+    const token = challengeToken;
+    const resolve = challengeWaiter;
+    challengeToken = challengeWaiter = null;
+    resolve(token);
+    window.turnstile.reset(challengeWidget);
+  }
+
+  // Only the newest run waits for a token.
+  function takeChallenge() {
+    return new Promise((resolve) => {
+      challengeWaiter = resolve;
+      deliverChallenge();
     });
   }
 
@@ -446,7 +478,7 @@ import { Sim } from './sim.js';
       const li = document.createElement('li');
       const you = mine && s.name === mine.name && Math.abs(s.score - mine.score) < 0.005;
       if (you) li.className = 'you';
-      li.textContent = `${String(i + 1).padStart(2, ' ')} ${s.name.padEnd(12, ' ')} ${s.score.toFixed(2)}s`;
+      li.textContent = `${String(i + 1).padStart(2, ' ')} ${s.name.padEnd(3, ' ')} ${s.score.toFixed(2)}s`;
       return li;
     }));
     $('board').hidden = false;
@@ -476,8 +508,11 @@ import { Sim } from './sim.js';
     loadBoard();
   }
 
+  const initials = (raw) => raw.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  $('name').addEventListener('input', (e) => { e.target.value = initials(e.target.value); });
+
   function readName() {
-    try { return localStorage.getItem('shiiit-name') || ''; } catch { return ''; }
+    try { return initials(localStorage.getItem('shiiit-name') || ''); } catch { return ''; }
   }
 
   const WHY = {
@@ -491,7 +526,7 @@ import { Sim } from './sim.js';
 
   $('post').addEventListener('click', async () => {
     if (!submission) return;
-    const name = $('name').value.trim().toUpperCase();
+    const name = initials($('name').value);
     try { localStorage.setItem('shiiit-name', name); } catch { /* private mode */ }
     $('post').disabled = true;
     $('posted').textContent = 'POSTING…';
@@ -506,7 +541,7 @@ import { Sim } from './sim.js';
       submission = null;
       $('postform').hidden = true;
       $('posted').textContent = `POSTED! RANK #${data.rank}`;
-      loadBoard({ name: name || 'ANON', score: data.score });
+      loadBoard({ name: name || '???', score: data.score });
     } catch (err) {
       $('posted').textContent = WHY[err.message] || 'Couldn’t post. Try again.';
       $('post').disabled = !submission || err.message === 'already_submitted';
@@ -627,6 +662,8 @@ import { Sim } from './sim.js';
     loaded++;
     setPrompt(`LOADING… ${Math.round((loaded / (FRAME_COUNT + 1)) * 100)}%`);
   });
+
+  if (API && CHALLENGE) loadChallenge();
 
   Promise.all([
     progress(loadSound()),

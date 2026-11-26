@@ -116,5 +116,5 @@ test('worker: start, finish once, leaderboard', async () => {
   }
 
   const top = await (await call(env, '/api/top')).json();
-  assert.deepEqual(top.scores, [{ name: 'CLAYB', score: live.t / 1000 }]);
+  assert.deepEqual(top.scores, [{ name: 'CLA', score: live.t / 1000 }]);
 });
