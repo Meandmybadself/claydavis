@@ -22,6 +22,20 @@
   const tapValue = (t) => Math.max(0.3, 1 / (1 + t / 40));
   const requiredRate = (t) => 3 + 8 * (1 - Math.exp(-t / 20)) + Math.max(0, t - 20) * 0.1;
 
+  // Lines in Clay's voice that rotate while you play. Edit freely.
+  const PHRASES = [
+    'SHEEEEEIT.',
+    'I AIN’T STOLE NOTHIN’!',
+    'THAT’S A LIE, AND YOU KNOW IT.',
+    'WHY YOU GOT TO BE LIKE THAT?',
+    'JUST A POOR COUNTRY LAWYER.',
+    'I’M A PUBLIC SERVANT!',
+    'DON’T YOU “SHIIIT” ME.',
+    'SHEEEEE-IT, THEY CAN’T PROVE NOTHIN’.',
+  ];
+  const PHRASE_SECONDS = 2.5;
+  const phraseAt = (t) => PHRASES[Math.floor(t / PHRASE_SECONDS) % PHRASES.length];
+
   const KEYS = { ArrowLeft: 0, KeyA: 0, KeyZ: 0, ArrowRight: 1, KeyL: 1, KeyX: 1 };
 
   const VERDICTS = [
@@ -232,7 +246,7 @@
     draw(frameAt(elapsed));
     render();
     if (breath < 0.25) setPrompt('FASTER!!', true);
-    else setPrompt(challenge && elapsed > challenge ? 'YOU BEAT IT!' : 'KEEP IT GOING!');
+    else setPrompt(challenge && elapsed > challenge ? 'YOU BEAT IT!' : phraseAt(elapsed));
     animation = requestAnimationFrame(tick);
   }
 
