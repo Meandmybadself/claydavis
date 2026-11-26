@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Sheeeee-it: The Clay Davis Game</title>
+  <meta name="description" content="Mash two buttons, Track & Field style, and see how long Senator Clay Davis can say it.">
+  <meta name="theme-color" content="#0d0907">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Shiiiiiiiiiit: The Clay Davis Game">
+  <meta property="og:description" content="How long can you keep the Senator going?">
+  <meta property="og:url" content="__SITE_URL__">
+  <meta property="og:image" content="__SITE_URL__og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💩</text></svg>">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="game">
+    <header>
+      <h1>CLAY DAVIS<br><span>TRACK &amp; FIELD</span></h1>
+      <div class="clock">
+        <div id="time">0.00</div>
+        <div class="best">BEST <span id="best">0.00</span></div>
+      </div>
+    </header>
+
+    <div id="stage">
+      <canvas id="screen" width="960" height="520" role="img" aria-label="Senator Clay Davis"></canvas>
+      <div id="prompt" aria-live="polite">LOADING…</div>
+    </div>
+
+    <div id="word" aria-hidden="true"><span id="letters">SH</span></div>
+
+    <div class="meter" aria-label="Breath meter">
+      <span>BREATH</span>
+      <div class="track"><div id="fill"></div></div>
+    </div>
+
+    <div class="pads">
+      <button type="button" class="pad" data-side="0" aria-label="Left button">
+        <b>A</b><small>← or A</small>
+      </button>
+      <button type="button" class="pad" data-side="1" aria-label="Right button">
+        <b>B</b><small>→ or L</small>
+      </button>
+    </div>
+
+    <footer>Unofficial fan project. Not affiliated with HBO.</footer>
+  </main>
+
+  <div id="results" hidden>
+    <div class="panel" role="dialog" aria-modal="true" aria-labelledby="verdict">
+      <p class="label">YOU HELD IT FOR</p>
+      <p id="final">0.00s</p>
+      <h2 id="verdict"></h2>
+      <p id="note"></p>
+      <img id="card" alt="Your score card">
+      <button type="button" id="share" class="primary">SHARE IT</button>
+      <div class="links">
+        <a id="toX" target="_blank" rel="noopener">X</a>
+        <a id="toBsky" target="_blank" rel="noopener">BLUESKY</a>
+        <a id="toFb" target="_blank" rel="noopener">FACEBOOK</a>
+        <button type="button" id="copy">COPY</button>
+        <a id="save" download="sheeeit.jpg">SAVE PIC</a>
+      </div>
+      <button type="button" id="again" class="primary alt">RUN IT BACK</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
