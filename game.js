@@ -224,7 +224,7 @@
     breath = START_BREATH;
     lastSide = side;
     highlightNext();
-    setPrompt('KEEP IT GOING!');
+    setPrompt(phraseAt(0));
     animation = requestAnimationFrame(tick);
   }
 
