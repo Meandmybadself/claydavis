@@ -15,6 +15,7 @@
   const GRACE = 0.9;          // seconds before breath starts draining
   const START_BREATH = 0.6;
   const PER_PRESS = 0.075;    // breath gained per correct (alternating) press
+  const AUDIO_LEAD = 0.15;    // seconds between the first tap and the sound starting
   const LOCKOUT_MS = 1200;    // stops leftover mashing from skipping the results
 
   // Alternating presses per second needed to break even at time t.
@@ -124,7 +125,7 @@
     return { looped: out, original: buffer };
   }
 
-  function play(buffer, offset, loop, fadeIn = 0) {
+  function play(buffer, offset, loop, fadeIn = 0, delay = 0) {
     const source = audio.createBufferSource();
     const gain = audio.createGain();
     source.buffer = buffer;
@@ -138,8 +139,34 @@
       gain.gain.linearRampToValueAtTime(1, audio.currentTime + fadeIn);
     }
     source.connect(gain).connect(audio.destination);
-    source.start(0, offset);
+    source.start(audio.currentTime + delay, offset);
     return { source, gain };
+  }
+
+  // iOS Safari wouldn't play the natively looped source, so chain plain one-shot
+  // segments instead (the same kind of playback that works for the ending).
+  let loopRate = 1;
+  function playLoop(delay) {
+    const gain = audio.createGain();
+    gain.connect(audio.destination);
+    const v = { gain, sources: [], next: audio.currentTime + delay, first: true };
+    v.schedule = () => {
+      while (v.next < audio.currentTime + 0.4) {
+        const offset = v.first ? 0 : LOOP_START;
+        const length = loopEnd - offset;
+        const src = audio.createBufferSource();
+        src.buffer = sound.looped;
+        src.playbackRate.value = loopRate;
+        src.connect(gain);
+        src.start(v.next, offset, length);
+        src.onended = () => { v.sources = v.sources.filter((x) => x !== src); };
+        v.sources.push(src);
+        v.next += length / loopRate;
+        v.first = false;
+      }
+    };
+    v.schedule();
+    return v;
   }
 
   function stop(v, fade = 0.08) {
@@ -148,7 +175,7 @@
     v.gain.gain.cancelScheduledValues(now);
     v.gain.gain.setValueAtTime(v.gain.gain.value, now);
     v.gain.gain.linearRampToValueAtTime(0, now + fade);
-    v.source.stop(now + fade);
+    for (const s of v.sources || [v.source]) { try { s.stop(now + fade); } catch { /* not started */ } }
   }
 
   /* ---------- drawing ---------- */
@@ -219,11 +246,18 @@
     // Mobile browsers keep the audio clock frozen until resume() settles, and a
     // sound started before then loses its opening. Wait for it, then begin.
     state = 'starting';
+    // iOS only unlocks audio if something is played synchronously inside the tap.
+    const unlock = audio.createBufferSource();
+    unlock.buffer = audio.createBuffer(1, 1, 22050);
+    unlock.connect(audio.destination);
+    unlock.start(0);
     const begin = () => {
       if (state !== 'starting') return;
       state = 'playing';
-      voice = play(sound.looped, 0, true);
-      startedAt = lastTick = performance.now();
+      // A short lead lets phone audio hardware wake up so the opening isn't clipped.
+      loopRate = 1;
+      voice = playLoop(AUDIO_LEAD);
+      startedAt = lastTick = performance.now() + AUDIO_LEAD * 1000;
       breath = START_BREATH;
       lastSide = side;
       highlightNext();
@@ -240,17 +274,18 @@
   function tick() {
     if (state !== 'playing') return;
     const now = performance.now();
-    const dt = (now - lastTick) / 1000;
+    const dt = Math.max(0, now - lastTick) / 1000;
     lastTick = now;
-    elapsed = (now - startedAt) / 1000;
+    elapsed = Math.max(0, now - startedAt) / 1000;
 
     if (elapsed > GRACE) breath -= requiredRate(elapsed) * PER_PRESS * Math.min(dt, 0.1);
     if (breath <= 0) return finish();
 
     // His voice sags as he runs out of breath.
     if (elapsed > LOOP_END) {
-      voice.source.playbackRate.setTargetAtTime(0.93 + 0.1 * breath, audio.currentTime, 0.1);
+      loopRate = 0.93 + 0.1 * breath;
     }
+    voice.schedule();
 
     draw(frameAt(elapsed));
     render();
