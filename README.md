@@ -2,7 +2,7 @@
 
 Alternate two buttons to keep Senator Clay Davis saying "shiiiiiiiiiiit" as long as you can.
 
-- **Keyboard:** `←` / `→`, `A` / `L`, or `Z` / `X`
+- **Keyboard:** `←` / `→`, `A` / `B`, or `Z` / `X`
 - **Touch:** the on-screen A and B buttons
 - **Challenge links:** `?t=23.45` asks the player to beat 23.45 seconds
 
@@ -17,6 +17,7 @@ Static files, no build step. It needs a web server (audio is loaded with `fetch`
 - `frames/` holds 74 stills at 29.97fps, in sync with `sounds/shit.mp3`.
 - The middle of the vowel is crossfaded and looped; the real ending plays when you run out of breath.
 - Difficulty is `requiredRate()` and the tuning constants at the top of `game.js`.
+- Files are cached for a long time. After changing `style.css` or `game.js`, bump its `?v=` number in `index.html` (`sim.js` is imported by `game.js`).
 - Best score is saved in `localStorage`.
 
 ## Leaderboard (Cloudflare Worker + D1)
