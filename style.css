@@ -167,3 +167,8 @@ h2 { font-size: 13px; line-height: 1.7; }
   .pad[data-side="1"] { grid-area: 2 / 3 / 5 / 4; }
   footer { display: none; }
 }
+
+/* Touch devices: drop the keyboard hints and fine print. */
+@media (pointer: coarse) {
+  .pad small, footer { display: none; }
+}
