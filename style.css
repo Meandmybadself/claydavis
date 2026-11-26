@@ -188,3 +188,10 @@ h2 { font-size: 13px; line-height: 1.7; }
 
 /* Stays above the game and results in case the bot check needs a click. */
 #turnstile { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 100; }
+
+.scores-link { display: inline-block; margin-top: 6px; font-size: 9px; color: var(--gold); }
+
+#highscores { max-width: 480px; margin: 0 auto; padding: 24px 16px; text-align: center; }
+#highscores #scores { width: max-content; max-width: 100%; margin: 20px auto; font-size: 12px; }
+#status { margin-top: 20px; font-size: 10px; line-height: 1.7; }
+.back { display: inline-block; padding: 12px 18px; font-size: 11px; color: var(--ink); border: 2px solid currentColor; text-decoration: none; }

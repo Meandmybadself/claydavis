@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>High scores · Clay Davis</title>
+  <meta name="theme-color" content="#0d0907">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3">
+</head>
+<body>
+  <main id="highscores">
+    <h1>HIGH SCORES</h1>
+    <p id="status" aria-live="polite">LOADING…</p>
+    <ol id="scores"></ol>
+    <a class="back" href="./">PLAY</a>
+  </main>
+
+  <script>
+    const status = document.getElementById('status');
+    fetch('/api/top?limit=50')
+      .then((res) => {
+        if (!res.ok) throw new Error(res.status);
+        return res.json();
+      })
+      .then(({ scores }) => {
+        document.getElementById('scores').replaceChildren(...scores.map((s, i) => {
+          const li = document.createElement('li');
+          li.textContent = `${String(i + 1).padStart(2, ' ')} ${s.name.padEnd(3, ' ')} ${s.score.toFixed(2)}s`;
+          return li;
+        }));
+        status.textContent = scores.length ? '' : 'NO SCORES YET.';
+      })
+      .catch(() => { status.textContent = 'COULDN’T LOAD. TRY AGAIN LATER.'; });
+  </script>
+</body>
+</html>
