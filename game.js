@@ -37,7 +37,7 @@ import { Sim } from './sim.js';
   const PHRASE_SECONDS = 2.5;
   const phraseAt = (t) => PHRASES[Math.floor(t / PHRASE_SECONDS) % PHRASES.length];
 
-  const KEYS = { ArrowLeft: 0, KeyA: 0, KeyZ: 0, ArrowRight: 1, KeyL: 1, KeyX: 1 };
+  const KEYS = { ArrowLeft: 0, KeyA: 0, KeyZ: 0, ArrowRight: 1, KeyB: 1, KeyX: 1 };
 
   const VERDICTS = [
     [0, 'That was barely a "shoot."'],
@@ -615,6 +615,7 @@ import { Sim } from './sim.js';
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement) return; // let initials be typed
     const side = KEYS[e.code];
     if (side === undefined) return;
     e.preventDefault();
