@@ -232,7 +232,9 @@
     };
     if (audio.state === 'running') return begin();
     // Browsers only allow audio to start from a user gesture; this is one.
+    // resume() can stay pending forever on some mobile browsers, so don't wait long.
     audio.resume().then(begin, begin);
+    setTimeout(begin, 250);
   }
 
   function tick() {
