@@ -1,4 +1,4 @@
-# Clay Davis Track & Field
+# Clay Davis
 
 Alternate two buttons to keep Senator Clay Davis saying "shiiiiiiiiiiit" as long as you can.
 

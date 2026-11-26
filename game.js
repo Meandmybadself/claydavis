@@ -325,7 +325,7 @@
     c.font = '34px "Press Start 2P", monospace';
     c.fillText(`I held it for ${seconds}s`, 600, 560);
     c.font = '18px "Press Start 2P", monospace';
-    c.fillText('CLAY DAVIS TRACK & FIELD', 600, 605);
+    c.fillText('CLAY DAVIS', 600, 605);
 
     const dataUrl = card.toDataURL('image/jpeg', 0.88);
     $('card').src = dataUrl;
